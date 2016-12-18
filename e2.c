@@ -15,9 +15,9 @@ int main( void )
 	double *zero;
 
 	zero=comp_zero();
-	printf("%.16lf, %.16lf\n", zero[0], zero[1]);
+	printf("Un zero (trobat amb newton 1D): %.16lf, %.16lf\n", zero[0], zero[1]);
 	zero=newton(zero[0], zero[1], 0.01);
-	printf("%.16lf, %.16lf\n", zero[0], zero[1]);
+	printf("Un zero (trobat amb newton nD): %.16lf, %.16lf\n", zero[0], zero[1]);
 
 	return 0;	
 }
@@ -92,29 +92,19 @@ double* newton ( double x0, double y0, double delta )
 	i = 0;
 	while(fabs(f(xn[0], xn[1]))>1e-10)
 	{
-		printf("------- Iter %d\n\n", i++);
 		J[0] = nabla_f(xn[0],xn[1]);
 		J[1] = nabla_g(xn[0],xn[1],x0,y0);
 
-		printf("%+.4e %+.4e\n%+.4e %+.4e\n\n", J[0][0], J[0][1], J[1][0], J[1][1]);
-
 		dJ = (J[0][0]*J[1][1] - J[0][1]*J[1][0]);
-
-		printf("%.10lf\n\n", dJ);
 
 		fxn[0] = f(xn[0],xn[1]);
 		fxn[1] = g(xn[0],xn[1], x0, y0, delta);
 
-		/* Hem de resoldre el sistema lineal Df*h = -b */
 		h[0] = ( (fxn[0] * J[1][1]) - (J[0][1] * fxn[1]) ) / dJ;
 		h[1] = ( (J[0][0] * fxn[1]) - (fxn[0] * J[1][0]) ) / dJ;
 
-		printf("%+.4e %+.4e\n\n", h[0], h[1]);
-
 		xn[0] = xn[0] - h[0];
 		xn[1] = xn[1] - h[1];
-
-		printf("%+.4e %+.4e\n\n", xn[0], xn[1]);
 
 	}
 
