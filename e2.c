@@ -2,22 +2,69 @@
 #include <stdlib.h>
 #include <math.h>
 
-double 	f		(double x, double y);
-double* nabla_f	(double x, double y);
-double g( double x, double y, double x0, double y0, double delta );
-double* nabla_g ( double x, double y, double x0, double y0 ); 
-double* comp_zero();
-double* newton	(double x0, double y0, double delta);
+#define TOL 1e-10
 
+double 	f			( double x, double y );
+double* nabla_f		( double x, double y );
+double 	g 			( double x, double y, double x0, double y0, double delta );
+double* nabla_g 	( double x, double y, double x0, double y0 ); 
+double* comp_zero	();
+double* newton		( double x, double y, double x0, double y0, double delta );
 
 int main( void )
 {
-	double *zero;
+	double *zeroInic, *zero;
+	double delta = 0.01;
+	double normDir;
+	double *dir, *dir1;
+	double aux;
+	FILE *file;
 
-	zero=comp_zero();
-	printf("Un zero (trobat amb newton 1D): %.16lf, %.16lf\n", zero[0], zero[1]);
-	zero=newton(zero[0], zero[1], 0.01);
-	printf("Un zero (trobat amb newton nD): %.16lf, %.16lf\n", zero[0], zero[1]);
+	file=fopen("test", "w");
+
+	zeroInic = comp_zero(); // Començem aquí
+	fprintf(file,"%.14lf, %.14lf\n", zeroInic[0], zeroInic[1]);
+
+
+	zero = (double*)malloc(2*sizeof(double));
+	dir1 = (double*)malloc(2*sizeof(double));
+
+	zero[0] = zeroInic[0];
+	zero[1] = zeroInic[1];
+
+	dir1[0] = 1;
+	dir1[1] = 1;
+
+	do
+	{
+		// obtenim una nova direcció
+		dir = nabla_f( zero[0], zero[1] ); 
+		// Projectem al tangent
+		aux=dir[0];
+		dir[0]=dir[1];
+		dir[1]=-aux;
+		// Normalitzar
+		normDir = sqrt(dir[0]*dir[0] + dir[1]*dir[1]);
+		dir[0] /= normDir;
+		dir[1] /= normDir;
+		
+		if( dir[0]*dir1[0] + dir[1]*dir1[1] < 0 )
+			zero = newton( zero[0]-dir[0]*delta, zero[1]-dir[1]*delta, zero[0], zero[1], delta );
+		else
+			zero = newton( zero[0]+dir[0]*delta, zero[1]+dir[1]*delta, zero[0], zero[1], delta );
+		fprintf(file,"%.12lf, %.12lf\n", zero[0], zero[1]);
+
+		dir1[0] = dir[0];
+		dir1[1] = dir[1];
+
+	}while( sqrt(pow(zeroInic[0]-zero[0],2)+pow(zeroInic[1]-zero[1],2)) > delta/2 );
+	
+	fclose(file);
+
+	free(zeroInic);
+	free(zero);
+	free(dir);
+	free(dir1);
 
 	return 0;	
 }
@@ -58,7 +105,7 @@ double* comp_zero()
 	double *n_f;
 	double *p = (double*)malloc(2*sizeof(double));
 
-	while(fabs(f(0,y))>1e-10)
+	while(fabs(f(0,y))>TOL)
 	{
 		n_f = nabla_f(0,y);
 		y = y - f(0,y)/n_f[1];
@@ -71,7 +118,7 @@ double* comp_zero()
 	return p;
 }
 
-double* newton ( double x0, double y0, double delta )
+double* newton ( double x, double y, double x0, double y0, double delta )
 {
 	double *xn, *h, *fxn;
 	double **J;
@@ -86,27 +133,38 @@ double* newton ( double x0, double y0, double delta )
 	h = (double*)malloc(2*sizeof(double));
 	fxn = (double*)malloc(2*sizeof(double));
 
-	xn[0] = 0; 
-	xn[1] = 2.5;
+	xn[0] = x; 
+	xn[1] = y;
 
-	i = 0;
-	while(fabs(f(xn[0], xn[1]))>1e-10)
+	while(fabs(f(xn[0], xn[1]))>=TOL)
 	{
 		J[0] = nabla_f(xn[0],xn[1]);
 		J[1] = nabla_g(xn[0],xn[1],x0,y0);
 
 		dJ = (J[0][0]*J[1][1] - J[0][1]*J[1][0]);
 
-		fxn[0] = f(xn[0],xn[1]);
-		fxn[1] = g(xn[0],xn[1], x0, y0, delta);
+		if(fabs(dJ) < TOL )
+		{
+			printf("%+.4lf %+.4lf\n%+.4lf %+.4lf\n", J[0][0], J[0][1], J[1][0], J[1][1]);
+			printf("El determinant és zero.\n");
+			break;
+		}
+
+		fxn[0] = f(xn[0], xn[1]);
+		fxn[1] = g(xn[0], xn[1], x0, y0, delta);
 
 		h[0] = ( (fxn[0] * J[1][1]) - (J[0][1] * fxn[1]) ) / dJ;
 		h[1] = ( (J[0][0] * fxn[1]) - (fxn[0] * J[1][0]) ) / dJ;
 
 		xn[0] = xn[0] - h[0];
 		xn[1] = xn[1] - h[1];
-
 	}
+
+	free(h);
+	free(fxn);
+	for(i=0;i<2;i++)
+		free(J[i]);
+	free(J);
 
 	return xn;
 
